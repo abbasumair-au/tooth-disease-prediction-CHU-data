@@ -8,6 +8,6 @@ Use PCA, clustering, and plots to show an understanding of the data.
 PCA: Fengrui
  • An explanation of the algorithms used, most specifically the new one. 
 	Use 3 algorithms for classification.
-Decision tree: umair
+	1.Decision tree: umair
 	2. KNN: Wenhan
-3. New Algorithm: Naive Bayes classifier: Miguel 
+	3. New Algorithm: Naive Bayes classifier: Miguel 
