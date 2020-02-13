@@ -6,7 +6,7 @@ Also print the whole data set.
 	Explain it in our words.
 Use PCA, clustering, and plots to show an understanding of the data.
 PCA: Fengrui
- • An explanation of the algorithms used, most specifically the new one. 
+	An explanation of the algorithms used, most specifically the new one. 
 	Use 3 algorithms for classification.
 	1.Decision tree: umair
 	2. KNN: Wenhan
