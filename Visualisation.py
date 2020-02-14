@@ -99,29 +99,25 @@ data1['Diagnosis'] = data1['Diagnosis'].cat.codes
 
 # print(data1.iloc[0:30,:])
 # data1.info()
+data1=(data1-data1.min())/(data1.max()-data1.min())
 pca = PCA()
 pca = PCA(n_components=2)
-x_train = data1.iloc[:,2:4]
-y_train = data1.iloc[:,16]
-pca.fit(x_train)
-# X_train, X_test, y_train, y_test = train_test_split(data1[:,1:15],
-#                                                     data1[:, 16],
-#                                                     random_state=0,
-#                                                     stratify=data1[:, 16])
+x_data = data1.iloc[:,2:5]
+y_target = data1.iloc[:,15]
+X_train, X_test, y_train, y_test = train_test_split(x_data, y_target, random_state=0, stratify=y_target)
+pca.fit(X_train)
+X_train_pca = pca.transform(X_train)
+X_test_pca = pca.transform(X_test)
 
-
-# X_train_pca = pca.transform(X_train)
-# X_test_pca = pca.transform(X_test)
-#
-for X, y in zip(x_train, y_train):
-    for i, annot in enumerate(zip(('Sex', 'Smoking', 'Pathologies'),
+for X, y in zip((X_train_pca, X_test_pca), (y_train, y_test)):
+    for i, annot in enumerate(zip(('Gingivitis', 'Periodontitis', 'Healthy'),
                                   ('blue', 'red', 'green'))):
         plt.scatter(X[y==i, 0],
                     X[y==i, 1],
                     label=annot[0],
                     c=annot[1])
-        plt.xlabel('Principal Component 1')
-        plt.ylabel('Principal Component 2')
-        plt.legend(loc='best')
-        plt.tight_layout()
-        plt.show()
+    plt.xlabel('Principal Component 1')
+    plt.ylabel('Principal Component 2')
+    plt.legend(loc='best')
+    plt.tight_layout()
+    plt.show()
