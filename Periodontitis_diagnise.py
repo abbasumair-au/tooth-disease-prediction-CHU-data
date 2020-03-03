@@ -8,6 +8,10 @@ from sklearn import neighbors
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.svm import SVC
 from sklearn.neural_network import MLPClassifier
+from sklearn.model_selection import LeaveOneOut
+from sklearn import model_selection
+from sklearn.model_selection import KFold
+from sklearn.gaussian_process import GaussianProcessClassifier
 
 
 def data_preprocess():
@@ -22,6 +26,18 @@ def data_preprocess():
     data1['Sex'] = data1['Sex'].cat.codes
     # data1.Sex[data1.Sex == 'Woman'] = 1
     # data1.Sex[data1.Sex == 'Man'] = 2
+
+    # bins = [0, 20, 40, 60, 80]
+    # labels = [0, 1, 2, 3]
+    # data1['Age'] = pd.cut(data1['Age'], bins=bins, labels=labels, right=False)
+    # data1['Age'] = data1['Age'].astype(np.int8)
+    # print(data1['Age'])
+
+    # bins = [0, 10, 20, 30, 40, 50]
+    # labels = [0, 1, 2, 3, 4]
+    # data1['BMI'] = pd.cut(data1['BMI'], bins=bins, labels=labels, right=False)
+    # data1['BMI'] = data1['BMI'].astype(np.int8)
+    # print(data1['BMI'])
 
     data1['Smoking'] = data1['Smoking'].astype('category')
     data1['Smoking'] = data1['Smoking'].cat.codes
@@ -106,10 +122,10 @@ def data_preprocess():
 
     # print(data1.iloc[0:30,:])
     # data1.info()
-    data1.iloc[:, 0:14] = (data1.iloc[:, 0:14] - data1.iloc[:, 0:14].min()) / (
-            data1.iloc[:, 0:14].max() - data1.iloc[:, 0:14].min())  # data normalization
+    data1.iloc[:, 1:15] = (data1.iloc[:, 1:15] - data1.iloc[:, 1:15].min()) / (
+            data1.iloc[:, 1:15].max() - data1.iloc[:, 1:15].min())  # data normalization
     # data1=(data1-data1.mean())/data1.std()
-
+    # print(data1.iloc[0:30, :])
     return data1
 
 
@@ -128,6 +144,7 @@ def pca_process():
     pca = PCA()
     pca = PCA(n_components=1)
     x_pca = data.loc[:, ['Age', 'BMI', 'Pathologies', 'Food_Sugar', 'Hygiene_Dental']]
+    # x_pca = data.iloc[:, 1:14]
     y_pca = data.loc[:, ['Diagnosis']]
     # X_train, X_test, y_train, y_test = train_test_split(x_data, y_target, random_state=0, stratify=y_target)
     pca.fit(x_pca)
@@ -152,11 +169,14 @@ def pca_process():
 def data_select(i):
     data = data_preprocess()
     if i == 0:
-        x_data = data.iloc[:, 1:14]
+        x_data = data.iloc[:, 1:15]
     if i == 1:
-        x_data = data.loc[:, ['Age', 'BMI', 'Pathologies', 'Food_Sugar', 'Hygiene_Dental']]
+        x_data = data.loc[:, ['Age', 'BMI', 'Pathologies', 'Food_Sugar', 'Hygiene_Dental']]   #use the correlated features
     if i == 2:
         x_data = pca_process()  # using data reduced dimension from PCA
+    if i == 3:
+        x_data = data.iloc[:, 2]  # use single feature
+        x_data = x_data.values.reshape(-1, 1)
     y_data = data.loc[:, ['Diagnosis']]
     return x_data, y_data
 
@@ -164,53 +184,113 @@ def data_select(i):
 def knn_process(i):
     # KNN
     x_data, y_data = data_select(i)
-    X_train, X_test, Y_train, Y_test = train_test_split(x_data, y_data, test_size=0.25, random_state=53)
-    knn = neighbors.KNeighborsClassifier(n_neighbors=5, weights='distance')
+    knn = neighbors.KNeighborsClassifier(n_neighbors=1, weights='uniform')
+    #split validation
+    X_train, X_test, Y_train, Y_test = train_test_split(x_data, y_data, test_size=0.22, random_state=53)
     knn.fit(X_train, np.ravel(Y_train, order='C'))
     train_score = knn.score(X_train, Y_train)
     test_score = knn.score(X_test, Y_test)
     print('Train Acc: %.3f, Test Acc: %.3f' % (train_score, test_score))
+    #K-fold validation
+    kfold = model_selection.KFold(n_splits=10)
+    results_kfold = model_selection.cross_val_score(knn, x_data, np.ravel(y_data, order='C'), cv=kfold)
+    print("Accuracy: %.2f%%" % (results_kfold.mean() * 100.0))
+    #leave one out validatoin
+    loocv = LeaveOneOut()
+    results_loocv = model_selection.cross_val_score(knn, x_data, np.ravel(y_data, order='C'), cv=loocv)
+    print("Accuracy: %.2f%%" % (results_loocv.mean() * 100.0))
+
 
 
 def decision_tree(i):
     # Decision Tree
     x_data, y_data = data_select(i)
-    X_train, X_test, Y_train, Y_test = train_test_split(x_data, y_data, test_size=0.25, random_state=53)
-    Dt = DecisionTreeClassifier(max_depth=4).fit(X_train, Y_train)
+    Dt = DecisionTreeClassifier(max_depth=5)
+    #split validation
+    X_train, X_test, Y_train, Y_test = train_test_split(x_data, y_data, test_size=0.12, random_state=53)
+    Dt.fit(X_train, Y_train)
     train_score = Dt.score(X_train, Y_train)
     test_score = Dt.score(X_test, Y_test)
     print('Train Acc: %.3f, Test Acc: %.3f' % (train_score, test_score))
+    #K-fold validation
+    kfold = model_selection.KFold(n_splits=10)
+    results_kfold = model_selection.cross_val_score(Dt, x_data, np.ravel(y_data, order='C'), cv=kfold)
+    print("Accuracy: %.2f%%" % (results_kfold.mean() * 100.0))
+    #leave one out validatoin
+    loocv = LeaveOneOut()
+    results_loocv = model_selection.cross_val_score(Dt, x_data, np.ravel(y_data, order='C'), cv=loocv)
+    print("Accuracy: %.2f%%" % (results_loocv.mean() * 100.0))
 
 
 def support_vector(i):
     x_data, y_data = data_select(i)
+    sv = SVC(kernel='linear', gamma='auto')
+    #split validation
     X_train, X_test, Y_train, Y_test = train_test_split(x_data, y_data, test_size=0.25, random_state=53)
-    sv = SVC(kernel='rbf', gamma='auto').fit(X_train, np.ravel(Y_train, order='C'))
+    sv.fit(X_train, np.ravel(Y_train, order='C'))
     train_score = sv.score(X_train, Y_train)
     test_score = sv.score(X_test, Y_test)
     print('Train Acc: %.3f, Test Acc: %.3f' % (train_score, test_score))
+    # K-fold validation
+    kfold = model_selection.KFold(n_splits=10)
+    results_kfold = model_selection.cross_val_score(sv, x_data, np.ravel(y_data, order='C'), cv=kfold)
+    print("Accuracy: %.2f%%" % (results_kfold.mean() * 100.0))
+    # leave one out validatoin
+    loocv = LeaveOneOut()
+    results_loocv = model_selection.cross_val_score(sv, x_data, np.ravel(y_data, order='C'), cv=loocv)
+    print("Accuracy: %.2f%%" % (results_loocv.mean() * 100.0))
 
 
 def neural_network(i):
     x_data, y_data = data_select(i)
-    X_train, X_test, Y_train, Y_test = train_test_split(x_data, y_data, test_size=0.25, random_state=53)
     clf = MLPClassifier(hidden_layer_sizes=(4,2), solver='sgd',
                         batch_size=4, learning_rate_init=0.005,
                         max_iter=500, shuffle=True)
+    #split validation
+    X_train, X_test, Y_train, Y_test = train_test_split(x_data, y_data, test_size=0.25, random_state=53)
     clf.fit(X_train, np.ravel(Y_train, order='C'))
     print("Number of layers: ", clf.n_layers_)
     print("Number of outputs: ", clf.n_outputs_)
     train_score = clf.score(X_train, Y_train)
     test_score = clf.score(X_test, Y_test)
     print('Train Acc: %.3f, Test Acc: %.3f' % (train_score, test_score))
+    # K-fold validation
+    kfold = model_selection.KFold(n_splits=10)
+    results_kfold = model_selection.cross_val_score(clf, x_data, np.ravel(y_data, order='C'), cv=kfold)
+    print("Accuracy: %.2f%%" % (results_kfold.mean() * 100.0))
+    # leave one out validatoin
+    loocv = LeaveOneOut()
+    results_loocv = model_selection.cross_val_score(clf, x_data, np.ravel(y_data, order='C'), cv=loocv)
+    print("Accuracy: %.2f%%" % (results_loocv.mean() * 100.0))
 
+
+def GP_Classifier(i):
+    x_data, y_data = data_select(i)
+    gpc = GaussianProcessClassifier(random_state = 53)
+    # split validation
+    X_train, X_test, Y_train, Y_test = train_test_split(x_data, y_data, test_size=0.25, random_state=53)
+    gpc.fit(X_train, np.ravel(Y_train, order='C'))
+    train_score = gpc.score(X_train, Y_train)
+    test_score = gpc.score(X_test, Y_test)
+    print('Train Acc: %.3f, Test Acc: %.3f' % (train_score, test_score))
+    # K-fold validation
+    kfold = model_selection.KFold(n_splits=10)
+    results_kfold = model_selection.cross_val_score(gpc, x_data, np.ravel(y_data, order='C'), cv=kfold)
+    print("Accuracy: %.2f%%" % (results_kfold.mean() * 100.0))
+    # leave one out validatoin
+    loocv = LeaveOneOut()
+    results_loocv = model_selection.cross_val_score(gpc, x_data, np.ravel(y_data, order='C'), cv=loocv)
+    print("Accuracy: %.2f%%" % (results_loocv.mean() * 100.0))
 
 if __name__ == '__main__':
     # parameter 0: all the data except id
     # parameter 1: 5 most correlated features
     # parameter 2: data after pca process
+    # parameter 3: choose one feature
 
+    # cal_correlation()
     # knn_process(1)
-    # decision_tree(1)
+    decision_tree(1)
     # support_vector(1)
-    neural_network(1)
+    # neural_network(3)
+    # GP_Classifier(1)
